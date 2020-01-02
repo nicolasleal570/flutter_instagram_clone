@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:instagram_clone/models/user_model.dart';
 import 'package:instagram_clone/screens/edit_profile_screen.dart';
@@ -18,6 +19,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        title: Text('Instagram',
+            style: TextStyle(
+                color: Colors.black, fontFamily: 'Billabong', fontSize: 35.0)),
+      ),
       backgroundColor: Colors.white,
       body: FutureBuilder(
           future: usersRef.document(widget.uid).get(),
@@ -38,11 +45,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Row(
                     children: <Widget>[
                       CircleAvatar(
-                        radius: 50.0,
-                        backgroundImage: NetworkImage(
-                            'https://img.pngio.com/png-avatar-108-images-in-collection-page-3-png-avatar-300_300.png',
-                            scale: 1.0),
-                      ),
+                          radius: 50.0,
+                          backgroundColor: Colors.grey,
+                          backgroundImage: user.profileImgUrl.isEmpty
+                              ? AssetImage('assets/images/avatar.png')
+                              : CachedNetworkImageProvider(user.profileImgUrl,
+                                  scale: 1.0)),
                       Expanded(
                         child: Column(
                           children: <Widget>[
@@ -135,9 +143,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       SizedBox(height: 5.0),
                       Container(
                           child: Text(
-                            '${user.email}',
-                            style: TextStyle(fontSize: 15.0),
-                          )),
+                        '${user.email}',
+                        style: TextStyle(fontSize: 15.0),
+                      )),
                       SizedBox(height: 5.0),
                       Container(
                           height: 80.0,

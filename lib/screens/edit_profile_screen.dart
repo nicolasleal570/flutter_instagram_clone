@@ -1,6 +1,11 @@
+import 'dart:io';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:instagram_clone/models/user_model.dart';
 import 'package:instagram_clone/services/database_service.dart';
+import 'package:instagram_clone/services/storage_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   static final String id = 'edit_profile_screen';
@@ -15,8 +20,10 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
+  File _profileImg;
   String _name = '';
   String _bio = '';
+  bool _isLoading = false;
 
   @override
   void initState() { 
@@ -25,13 +32,45 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _bio = widget.user.bio;
   }
 
-  void _submit(){
+  _handleImgFromGallery() async {
+    File imageFile = await ImagePicker.pickImage(source: ImageSource.gallery);
+
+    if (imageFile != null) {
+      setState(() {
+        _profileImg = imageFile;
+      });
+    }
+  }
+
+  _displayProfilePhoto(){
+    if (_profileImg == null) {
+      if (widget.user.profileImgUrl.isEmpty) {
+        return AssetImage('assets/images/avatar.png');
+      } else {
+        return CachedNetworkImageProvider(widget.user.profileImgUrl);
+      }
+    } else {
+      return FileImage(_profileImg);
+    }
+  }
+
+  void _submit() async {
     if (_formKey.currentState.validate()) {
       _formKey.currentState.save();
+
+      setState(() {
+        _isLoading = true;
+      });
 
       // Update user in database 
 
       String _profileImgUrl = '';
+
+      if (_profileImg == null) {
+        _profileImgUrl = widget.user.profileImgUrl;
+      } else {
+        _profileImgUrl = await StorageService.uploadUserProfileImg(widget.user.profileImgUrl, _profileImg);
+      }
 
       User user = User(
         id: widget.user.id,
@@ -59,71 +98,75 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           style: TextStyle(color: Colors.black),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Container(
-            height: MediaQuery.of(context).size.height,
-            child: Padding(
-              padding: EdgeInsets.all(30.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: <Widget>[
-                    CircleAvatar(
-                      radius: 60.0,
-                      backgroundImage: NetworkImage(
-                          'https://img.pngio.com/png-avatar-108-images-in-collection-page-3-png-avatar-300_300.png',
-                          scale: 1.0),
-                    ),
-                    FlatButton(
-                      onPressed: () => print('Change profile img'),
-                      child: Text(
-                        'Change profile image',
-                        style: TextStyle(
-                            color: Theme.of(context).accentColor, fontSize: 16.0),
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: ListView(
+          children: <Widget>[
+              _isLoading ? LinearProgressIndicator(
+                backgroundColor: Colors.blue[200],
+                valueColor: AlwaysStoppedAnimation(Colors.blue)
+              ) : SizedBox.shrink(),
+              Padding(
+                padding: EdgeInsets.all(30.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: <Widget>[
+                      CircleAvatar(
+                        radius: 60.0,
+                        backgroundColor: Colors.grey,
+                        backgroundImage: _displayProfilePhoto(),
                       ),
-                    ),
-                    TextFormField(
-                      initialValue: _name,
-                      style: TextStyle(fontSize: 18.0),
-                      decoration: InputDecoration(
-                        icon: Icon(
-                          Icons.person,
-                          size: 30.0,
+                      FlatButton(
+                        onPressed: _handleImgFromGallery,
+                        child: Text(
+                          'Change profile image',
+                          style: TextStyle(
+                              color: Theme.of(context).accentColor, fontSize: 16.0),
                         ),
-                        labelText: 'Name',
                       ),
-                      validator: (value) => value.trim().length < 1
-                          ? 'Please enter a valid name'
-                          : null,
-                          onSaved: (value) => _name = value,
-                    ),
-                    TextFormField(
-                      initialValue: _bio,
-                      style: TextStyle(fontSize: 18.0),
-                      decoration: InputDecoration(
-                        icon: Icon(
-                          Icons.book,
-                          size: 30.0,
+                      TextFormField(
+                        initialValue: _name,
+                        style: TextStyle(fontSize: 18.0),
+                        decoration: InputDecoration(
+                          icon: Icon(
+                            Icons.person,
+                            size: 30.0,
+                          ),
+                          labelText: 'Name',
                         ),
-                        labelText: 'Biography',
+                        validator: (value) => value.trim().length < 1
+                            ? 'Please enter a valid name'
+                            : null,
+                            onSaved: (value) => _name = value,
                       ),
-                      validator: (value) => value.trim().length > 150
-                          ? 'Please enter a bio less than 150 characters'
-                          : null,
-                          onSaved: (value) => _bio = value,
-                    ),
-                    Container(height: 40.0, width: 250.0,
-                    margin: EdgeInsets.all(30.0),
-                    child: FlatButton(
-                      onPressed: _submit,
-                      color: Colors.blue,
-                      textColor: Colors.white,
-                      child: Text('Save Profile', style: TextStyle(fontSize: 18.0),),
-                    ),),
-                  ],
+                      TextFormField(
+                        initialValue: _bio,
+                        style: TextStyle(fontSize: 18.0),
+                        decoration: InputDecoration(
+                          icon: Icon(
+                            Icons.book,
+                            size: 30.0,
+                          ),
+                          labelText: 'Biography',
+                        ),
+                        validator: (value) => value.trim().length > 150
+                            ? 'Please enter a bio less than 150 characters'
+                            : null,
+                            onSaved: (value) => _bio = value,
+                      ),
+                      Container(height: 40.0, width: 250.0,
+                      margin: EdgeInsets.all(30.0),
+                      child: FlatButton(
+                        onPressed: _submit,
+                        color: Colors.blue,
+                        textColor: Colors.white,
+                        child: Text('Save Profile', style: TextStyle(fontSize: 18.0),),
+                      ),),
+                    ],
+                  ),
                 ),
-              ),
-            )),
+              )]),
       ),
     );
   }
